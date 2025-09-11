@@ -1,0 +1,32 @@
+/vendor/
+/node_modules/
+/.idea/
+/.vscode/
+/build/
+/coverage/
+.phpunit.result.cache
+.env
+.env.backup
+.env.production
+.DS_Store
+Thumbs.db
+
+# Composer
+composer.phar
+composer.lock
+
+# PHPUnit
+phpunit.xml
+/tests/coverage.xml
+
+# Build artifacts
+/docs/_build/
+
+# OS generated files
+*.swp
+*.swo
+*~
+
+# Coverage reports
+/tests/coverage/
+clover.xml
