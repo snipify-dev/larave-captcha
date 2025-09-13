@@ -1,7 +1,14 @@
 {
     "name": "snipify-dev/laravel-captcha",
     "description": "A comprehensive Laravel package for integrating Google reCAPTCHA v2 and v3 with support for standard forms and Livewire components",
-    "keywords": ["laravel", "captcha", "recaptcha", "livewire", "security", "validation"],
+    "keywords": [
+        "laravel",
+        "captcha",
+        "recaptcha",
+        "livewire",
+        "security",
+        "validation"
+    ],
     "type": "library",
     "license": "MIT",
     "authors": [
@@ -42,7 +49,7 @@
                 "SnipifyDev\\LaravelCaptcha\\CaptchaServiceProvider"
             ],
             "aliases": {
-                "Captcha": "SnipifyDev\\LaravelCaptcha\\Facades\\Captcha"
+                "Recaptcha": "SnipifyDev\\LaravelCaptcha\\Facades\\Recaptcha"
             }
         }
     },

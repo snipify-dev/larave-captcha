@@ -3,7 +3,7 @@
 namespace SnipifyDev\LaravelCaptcha\View\Components;
 
 use Illuminate\View\Component;
-use SnipifyDev\LaravelCaptcha\Facades\Captcha;
+use SnipifyDev\LaravelCaptcha\Facades\Recaptcha;
 
 /**
  * Captcha Script Component
@@ -41,6 +41,20 @@ class CaptchaScript extends Component
     public array $jsConfig;
 
     /**
+     * The Google reCAPTCHA script URL.
+     *
+     * @var string|null
+     */
+    public ?string $scriptUrl;
+
+    /**
+     * The package JavaScript asset URL.
+     *
+     * @var string|null
+     */
+    public ?string $packageScriptUrl;
+
+    /**
      * Create a new component instance.
      *
      * @param string|null $version
@@ -48,10 +62,12 @@ class CaptchaScript extends Component
      */
     public function __construct(?string $version = null, ?bool $enabled = null)
     {
-        $this->version = $version ?: Captcha::getVersion();
-        $this->enabled = $enabled ?? Captcha::isEnabled();
-        $this->siteKey = $this->enabled ? Captcha::getSiteKey($this->version) : null;
-        $this->jsConfig = $this->enabled ? Captcha::getJavaScriptConfig($this->version) : [];
+        $this->version = $version ?? config('laravel-captcha.default', 'v3');
+        $this->enabled = $enabled ?? Recaptcha::isEnabled();
+        $this->siteKey = $this->enabled ? Recaptcha::getSiteKey($this->version) : null;
+        $this->jsConfig = $this->enabled ? Recaptcha::getJavaScriptConfig($this->version) : [];
+        $this->scriptUrl = $this->getScriptUrl();
+        $this->packageScriptUrl = $this->getPackageScriptUrl();
     }
 
     /**
@@ -61,7 +77,7 @@ class CaptchaScript extends Component
      */
     public function render()
     {
-        return view('captcha::components.captcha-script');
+        return view('recaptcha::components.captcha-script');
     }
 
     /**
@@ -75,13 +91,21 @@ class CaptchaScript extends Component
             return null;
         }
 
-        if ($this->version === 'v3') {
-            return "https://www.google.com/recaptcha/api.js?render={$this->siteKey}";
-        } elseif ($this->version === 'v2') {
-            return 'https://www.google.com/recaptcha/api.js';
+        // Check if we have mixed versions on the page
+        $hasV2 = !empty(config('laravel-captcha.site_key_v2'));
+        $hasV3 = !empty(config('laravel-captcha.site_key_v3'));
+        
+        // If we have both v2 and v3, or if we're using v3, load the v3 script
+        if (($hasV2 && $hasV3) || $this->version === 'v3') {
+            // v3 script URL with render parameter for the v3 site key
+            $v3SiteKey = config('laravel-captcha.site_key_v3');
+            if ($v3SiteKey) {
+                return "https://www.google.com/recaptcha/api.js?render={$v3SiteKey}";
+            }
         }
-
-        return null;
+        
+        // Fallback to v2 script for v2 only or when v3 key is not available
+        return 'https://www.google.com/recaptcha/api.js';
     }
 
     /**
@@ -95,8 +119,7 @@ class CaptchaScript extends Component
             return null;
         }
 
-        $filename = $this->version === 'v3' ? 'captcha-v3.js' : 'captcha-v2.js';
-        return asset("vendor/laravel-captcha/js/{$filename}");
+        return asset("vendor/recaptcha/recaptcha.js");
     }
 
     /**

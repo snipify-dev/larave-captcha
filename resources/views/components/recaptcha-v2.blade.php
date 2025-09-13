@@ -33,13 +33,13 @@
     
     {{-- Error display element --}}
     @error($name)
-        <div class="{{ config('captcha.attributes.css_classes.error', 'captcha-error') }}">
+        <div class="{{ config('laravel-captcha.attributes.css_classes.error', 'captcha-error') }}">
             {{ $message }}
         </div>
     @enderror
     
     {{-- Debug information (only in debug mode) --}}
-    @if(config('captcha.development.debug', false) && app()->environment(['local', 'testing']))
+    @if(config('laravel-captcha.development.debug', false) && app()->environment(['local', 'testing']))
         <div class="captcha-debug" style="font-size: 11px; color: #666; margin-top: 2px;">
             Debug: reCAPTCHA v2 | Theme: {{ $widgetConfig['theme'] ?? 'light' }} | Size: {{ $widgetConfig['size'] ?? 'normal' }}
             @if($isInvisible()) | Mode: Invisible @endif

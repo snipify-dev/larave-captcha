@@ -15,18 +15,11 @@ use SnipifyDev\LaravelCaptcha\Rules\RecaptchaV3Rule;
 class CaptchaManager extends Manager
 {
     /**
-     * The application instance.
-     *
-     * @var Container
-     */
-    protected Container $container;
-
-    /**
      * The configuration array.
      *
      * @var array
      */
-    protected array $config;
+    protected array $captchaConfig;
 
     /**
      * Create a new captcha manager instance.
@@ -37,8 +30,7 @@ class CaptchaManager extends Manager
     public function __construct(Container $container, array $config)
     {
         parent::__construct($container);
-        $this->container = $container;
-        $this->config = $config;
+        $this->captchaConfig = $config;
     }
 
     /**
@@ -48,9 +40,9 @@ class CaptchaManager extends Manager
      */
     public function getDefaultDriver(): string
     {
-        $version = $this->config['default'] ?? 'v3';
-        
-        return match($version) {
+        $version = $this->captchaConfig['default'] ?? 'v3';
+
+        return match ($version) {
             'v2' => 'recaptcha_v2',
             'v3' => 'recaptcha_v3',
             false => 'null',
@@ -105,11 +97,11 @@ class CaptchaManager extends Manager
         ?string $version = null
     ): bool {
         $driver = $version ? $this->driver($this->getDriverName($version)) : $this->driver();
-        
+
         if ($driver instanceof RecaptchaV3Service) {
             return $driver->verify($token, $action, $threshold);
         }
-        
+
         return $driver->verify($token);
     }
 
@@ -124,12 +116,12 @@ class CaptchaManager extends Manager
     public function getScore(string $token, string $action = 'default'): ?float
     {
         $driver = $this->driver();
-        
+
         if ($driver instanceof RecaptchaV3Service) {
             $response = $driver->verifyToken($token, $action);
             return $response['score'] ?? null;
         }
-        
+
         return null;
     }
 
@@ -142,7 +134,7 @@ class CaptchaManager extends Manager
     public function isEnabled(string $action = 'default'): bool
     {
         // Check if captcha is globally disabled
-        if (!$this->config['default']) {
+        if (!$this->captchaConfig['default']) {
             return false;
         }
 
@@ -152,7 +144,7 @@ class CaptchaManager extends Manager
         }
 
         // Check form-specific configuration
-        return $this->config['forms'][$action] ?? true;
+        return $this->captchaConfig['forms'][$action] ?? true;
     }
 
     /**
@@ -168,9 +160,9 @@ class CaptchaManager extends Manager
         ?float $threshold = null,
         ?string $version = null
     ): RecaptchaV2Rule|RecaptchaV3Rule {
-        $actualVersion = $version ?? $this->config['default'];
-        
-        return match($actualVersion) {
+        $actualVersion = $version ?? $this->captchaConfig['default'];
+
+        return match ($actualVersion) {
             'v3' => new RecaptchaV3Rule($action, $threshold),
             'v2' => new RecaptchaV2Rule(),
             default => throw CaptchaConfigurationException::invalidVersion($actualVersion),
@@ -185,11 +177,11 @@ class CaptchaManager extends Manager
      */
     public function getSiteKey(?string $version = null): ?string
     {
-        $actualVersion = $version ?? $this->config['default'];
-        
-        return match($actualVersion) {
-            'v3' => $this->config['services']['recaptcha']['site_key'] ?? null,
-            'v2' => $this->config['services']['recaptcha']['v2_site_key'] ?? null,
+        $actualVersion = $version ?? $this->captchaConfig['default'];
+
+        return match ($actualVersion) {
+            'v3' => $this->captchaConfig['services']['recaptcha']['site_key'] ?? null,
+            'v2' => $this->captchaConfig['services']['recaptcha']['v2_site_key'] ?? null,
             default => null,
         };
     }
@@ -202,11 +194,11 @@ class CaptchaManager extends Manager
      */
     public function getSecretKey(?string $version = null): ?string
     {
-        $actualVersion = $version ?? $this->config['default'];
-        
-        return match($actualVersion) {
-            'v3' => $this->config['services']['recaptcha']['secret_key'] ?? null,
-            'v2' => $this->config['services']['recaptcha']['v2_secret_key'] ?? null,
+        $actualVersion = $version ?? $this->captchaConfig['default'];
+
+        return match ($actualVersion) {
+            'v3' => $this->captchaConfig['services']['recaptcha']['secret_key'] ?? null,
+            'v2' => $this->captchaConfig['services']['recaptcha']['v2_secret_key'] ?? null,
             default => null,
         };
     }
@@ -219,8 +211,8 @@ class CaptchaManager extends Manager
      */
     public function getThreshold(string $action = 'default'): float
     {
-        return $this->config['v3']['thresholds'][$action] 
-            ?? $this->config['v3']['default_threshold'] 
+        return $this->captchaConfig['v3']['thresholds'][$action]
+            ?? $this->captchaConfig['v3']['default_threshold']
             ?? 0.5;
     }
 
@@ -233,7 +225,7 @@ class CaptchaManager extends Manager
      */
     public function config(string $key, $default = null)
     {
-        return data_get($this->config, $key, $default);
+        return data_get($this->captchaConfig, $key, $default);
     }
 
     /**
@@ -243,7 +235,7 @@ class CaptchaManager extends Manager
      */
     public function getVersion(): string|false
     {
-        return $this->config['default'];
+        return $this->captchaConfig['default'];
     }
 
     /**
@@ -254,12 +246,12 @@ class CaptchaManager extends Manager
     public function shouldSkipValidation(): bool
     {
         // Skip in testing environment
-        if (($this->config['skip_testing'] ?? true) && app()->environment('testing')) {
+        if (($this->captchaConfig['skip_testing'] ?? true) && app()->environment('testing')) {
             return true;
         }
 
         // Skip in development if fake mode is enabled
-        if (($this->config['fake_in_development'] ?? false) && app()->environment('local')) {
+        if (($this->captchaConfig['fake_in_development'] ?? false) && app()->environment('local')) {
             return true;
         }
 
@@ -274,7 +266,7 @@ class CaptchaManager extends Manager
      */
     public function setEnabled(bool $enabled): void
     {
-        $this->config['default'] = $enabled ? ($this->config['default'] ?: 'v3') : false;
+        $this->captchaConfig['default'] = $enabled ? ($this->captchaConfig['default'] ?: 'v3') : false;
     }
 
     /**
@@ -289,8 +281,8 @@ class CaptchaManager extends Manager
         if (!in_array($version, ['v2', 'v3'])) {
             throw CaptchaConfigurationException::invalidVersion($version);
         }
-        
-        $this->config['default'] = $version;
+
+        $this->captchaConfig['default'] = $version;
     }
 
     /**
@@ -301,9 +293,9 @@ class CaptchaManager extends Manager
      */
     public function getJavaScriptConfig(?string $version = null): array
     {
-        $actualVersion = $version ?? $this->config['default'];
+        $actualVersion = $version ?? $this->captchaConfig['default'];
         $siteKey = $this->getSiteKey($actualVersion);
-        
+
         $config = [
             'version' => $actualVersion,
             'site_key' => $siteKey,
@@ -311,12 +303,12 @@ class CaptchaManager extends Manager
         ];
 
         if ($actualVersion === 'v3') {
-            $config['badge'] = $this->config['v3']['badge'] ?? [];
-            $config['refresh_interval'] = $this->config['livewire']['refresh_interval'] ?? 110;
+            $config['badge'] = $this->captchaConfig['v3']['badge'] ?? [];
+            $config['refresh_interval'] = $this->captchaConfig['livewire']['refresh_interval'] ?? 110;
         } elseif ($actualVersion === 'v2') {
-            $config['theme'] = $this->config['v2']['theme'] ?? 'light';
-            $config['size'] = $this->config['v2']['size'] ?? 'normal';
-            $config['type'] = $this->config['v2']['type'] ?? 'image';
+            $config['theme'] = $this->captchaConfig['v2']['theme'] ?? 'light';
+            $config['size'] = $this->captchaConfig['v2']['size'] ?? 'normal';
+            $config['type'] = $this->captchaConfig['v2']['type'] ?? 'image';
         }
 
         return $config;
@@ -330,7 +322,7 @@ class CaptchaManager extends Manager
      */
     protected function getDriverName(string $version): string
     {
-        return match($version) {
+        return match ($version) {
             'v2' => 'recaptcha_v2',
             'v3' => 'recaptcha_v3',
             default => throw CaptchaConfigurationException::invalidVersion($version),

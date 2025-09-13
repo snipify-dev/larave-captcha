@@ -1,176 +1,89 @@
-# Laravel Captcha
+# Laravel reCAPTCHA Package
 
-A comprehensive Laravel package for integrating Google reCAPTCHA v2 and v3 with support for standard forms and Livewire components.
+A modern, Laravel-native package for integrating Google reCAPTCHA v2 and v3 with both standard forms and Livewire components. Features proper Laravel validation rules and multiple integration approaches.
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/snipify-dev/laravel-captcha.svg?style=flat-square)](https://packagist.org/packages/snipify-dev/laravel-captcha)
-[![GitHub Tests Action Status](https://img.shields.io/github/workflow/status/snipify-dev/laravel-captcha/run-tests?label=tests)](https://github.com/snipify-dev/laravel-captcha/actions?query=workflow%3Arun-tests+branch%3Amain)
-[![GitHub Code Style Action Status](https://img.shields.io/github/workflow/status/snipify-dev/laravel-captcha/Fix%20PHP%20code%20style%20issues?label=code%20style)](https://github.com/snipify-dev/laravel-captcha/actions?query=workflow%3A"Fix+PHP+code+style+issues"+branch%3Amain)
 [![Total Downloads](https://img.shields.io/packagist/dt/snipify-dev/laravel-captcha.svg?style=flat-square)](https://packagist.org/packages/snipify-dev/laravel-captcha)
 
-## Features
+## ✨ Features
 
-- 🚀 **Multi-Version Support**: reCAPTCHA v2 (checkbox & invisible) and v3 (score-based)
-- ⚡ **Livewire Integration**: Seamless integration with Livewire components including auto-refresh
-- 🎨 **Blade Components**: Easy-to-use Blade components for quick implementation
-- 🛡️ **Security First**: Built-in protection against common attacks and security best practices
-- 🧪 **Testing Friendly**: Skip validation in testing environments with configurable test modes
-- 📊 **Comprehensive Logging**: Detailed error logging and debugging capabilities
-- 🎛️ **Highly Configurable**: Extensive configuration options for every use case
-- 🔄 **Auto-Refresh**: Automatic token refresh for v3 to prevent expiration
-- 🌐 **Multi-Form Support**: Handle multiple forms on the same page
-- ⚖️ **Laravel Version Support**: Compatible with Laravel 8.x through 12.x
+- 🚀 **Laravel Validation Rules**: Native Laravel validation with InvokableRule support
+- ⚡ **Multiple Integration Methods**: Choose what works best for your use case
+- 🛡️ **Multi-Version Support**: reCAPTCHA v2 (checkbox & invisible) and v3 (score-based)
+- 🎯 **Livewire Optimized**: Built for Livewire 3.x with attribute-based validation
+- 🧪 **Testing Friendly**: Automatically disabled in testing environments
+- 📦 **Zero Configuration**: Works out of the box with sensible defaults
+- 🎛️ **Flexible**: String rules, InvokableRules, FormRequests, and Livewire attributes
+- 🌩️ **Future Ready**: Cloudflare Turnstile support coming soon
 
-## Requirements
+## 🎯 What's New in v2.0
 
-- PHP 8.0+
-- Laravel 8.x - 12.x
-- GuzzleHTTP 7.0+
+- ✅ **Modern Laravel Validation Rules** - Use familiar `$this->validate()` syntax
+- ✅ **InvokableRule Support** - `new RecaptchaValidationRule('login')`
+- ✅ **Livewire Attributes** - `#[ValidatesRecaptcha('contact')]`
+- ✅ **FormRequest Integration** - Extend `BaseRecaptchaRequest`
+- ✅ **String-based Rules** - `'captchaToken' => 'required|recaptcha:login'`
+- ✅ **Auto-detection** - Automatically detects v2 vs v3 tokens
+- ✅ **Enhanced Error Handling** - Better error messages and logging
+
+## 📋 Requirements
+
+- PHP 8.2+
+- Laravel 10.x - 12.x
 - Google reCAPTCHA API keys
+- Livewire 3.x (for Livewire features)
 
-## Installation
+## 🚀 Installation
 
 ### Step 1: Install the Package
-
-#### Via Composer (when published to Packagist)
 
 ```bash
 composer require snipify-dev/laravel-captcha
 ```
 
-#### Via Local Path (for development)
-
-Add to your `composer.json`:
-
-```json
-{
-    "repositories": [
-        {
-            "type": "path",
-            "url": "./packages/laravel-captcha"
-        }
-    ],
-    "require": {
-        "your-vendor/laravel-captcha": "*"
-    }
-}
-```
-
-Then run:
-
-```bash
-composer update
-```
-
-### Step 2: Publish Configuration
-
-```bash
-php artisan vendor:publish --tag=captcha-config
-```
-
-### Step 3: Publish Assets (Optional)
-
-```bash
-# Publish views for customization
-php artisan vendor:publish --tag=captcha-views
-
-# Publish JavaScript assets
-php artisan vendor:publish --tag=captcha-assets
-```
-
-### Step 4: Configure Environment Variables
+### Step 2: Configure Environment Variables
 
 Add your reCAPTCHA keys to your `.env` file:
 
 ```env
-# Required: Choose your captcha version
-CAPTCHA_VERSION=v3
+# Choose your default captcha version
+LARAVEL_CAPTCHA_DEFAULT=v3
 
-# reCAPTCHA v3 Keys
-RECAPTCHAV3_SITEKEY=your_v3_site_key_here
-RECAPTCHAV3_SECRET=your_v3_secret_key_here
+# reCAPTCHA v3 Keys (recommended)
+LARAVEL_CAPTCHA_SECRET_KEY_V3=your_v3_secret_key_here
+LARAVEL_CAPTCHA_SITE_KEY_V3=your_v3_site_key_here
 
-# reCAPTCHA v2 Keys (optional, will fallback to v3 keys)
-RECAPTCHAV2_SITEKEY=your_v2_site_key_here
-RECAPTCHAV2_SECRET=your_v2_secret_key_here
+# reCAPTCHA v2 Keys (optional)
+LARAVEL_CAPTCHA_SECRET_KEY_V2=your_v2_secret_key_here
+LARAVEL_CAPTCHA_SITE_KEY_V2=your_v2_site_key_here
 
-# Optional: Score threshold for v3 (0.0 to 1.0, default: 0.5)
-RECAPTCHA_SCORE_THRESHOLD=0.5
-
-# Optional: Skip captcha in testing (default: true)
-CAPTCHA_SKIP_TESTING=true
-
-# Optional: Fake captcha in development (default: false)
-CAPTCHA_FAKE_DEVELOPMENT=false
+# Optional: Score threshold for v3 (default: 0.5)
+LARAVEL_CAPTCHA_SCORE_THRESHOLD=0.5
 ```
 
-### Step 5: Clear Configuration Cache
+### Step 3: Clear Configuration Cache
 
 ```bash
 php artisan config:clear
 ```
 
-## Getting Your reCAPTCHA Keys
+**That's it! The package auto-registers and is ready to use.**
+
+## 📚 Getting Your reCAPTCHA Keys
 
 1. Visit the [Google reCAPTCHA Admin Console](https://www.google.com/recaptcha/admin)
 2. Click "+" to create a new site
 3. Choose your reCAPTCHA type:
-   - **reCAPTCHA v3**: For score-based validation (recommended)
-   - **reCAPTCHA v2**: For checkbox or invisible validation
+   - **v3 (Recommended)**: Score-based, invisible to users
+   - **v2**: Checkbox "I'm not a robot"
 4. Add your domains (including localhost for development)
-5. Copy the **Site Key** and **Secret Key** to your `.env` file
+5. Copy the Site Key and Secret Key to your `.env` file
 
-## Quick Start
+## ⚡ Quick Start Examples
 
-### Basic Form Implementation
+### 1. Modern Laravel Validation (Recommended)
 
-#### 1. Add Captcha to Your Form
-
-```blade
-{{-- In your form view --}}
-<form method="POST" action="{{ route('contact.store') }}">
-    @csrf
-    
-    <input type="text" name="name" required>
-    <input type="email" name="email" required>
-    <textarea name="message" required></textarea>
-    
-    {{-- Add CAPTCHA field --}}
-    <x-captcha-field action="contact" />
-    
-    <button type="submit">Send Message</button>
-</form>
-
-{{-- Include CAPTCHA scripts (add to your layout) --}}
-<x-captcha-script />
-```
-
-#### 2. Validate in Your Controller
-
-```php
-<?php
-
-use Illuminate\Http\Request;
-use YourVendor\LaravelCaptcha\Rules\RecaptchaV3Rule;
-
-class ContactController extends Controller
-{
-    public function store(Request $request)
-    {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email',
-            'message' => 'required|string|min:10',
-            'captcha_token' => ['required', new RecaptchaV3Rule('contact')],
-        ]);
-        
-        // Process your form...
-    }
-}
-```
-
-### Livewire Component Implementation
-
-#### 1. Create Your Livewire Component
+#### Livewire Component
 
 ```php
 <?php
@@ -178,31 +91,28 @@ class ContactController extends Controller
 namespace App\Livewire;
 
 use Livewire\Component;
-use YourVendor\LaravelCaptcha\Traits\WithCaptcha;
+use SnipifyDev\LaravelCaptcha\Rules\RecaptchaValidationRule;
 
 class ContactForm extends Component
 {
-    use WithCaptcha;
-    
-    public $name;
-    public $email;
-    public $message;
+    public $name = '';
+    public $email = '';
+    public $message = '';
+    public $captchaToken = '';
     
     public function submit()
     {
+        // Clean Laravel validation with captcha
         $this->validate([
             'name' => 'required|min:3',
             'email' => 'required|email',
             'message' => 'required|min:10',
-            'captchaToken' => $this->captchaRule('contact'),
+            'captchaToken' => ['required', new RecaptchaValidationRule('contact')],
         ]);
         
-        // Process the form...
-        
-        // Refresh token for next submission
-        $this->refreshCaptchaToken();
-        
-        session()->flash('message', 'Message sent successfully!');
+        // Process your form here...
+        $this->reset();
+        session()->flash('success', 'Message sent successfully!');
     }
     
     public function render()
@@ -212,62 +122,276 @@ class ContactForm extends Component
 }
 ```
 
-#### 2. Create the Livewire View
+#### Livewire View
 
 ```blade
 {{-- resources/views/livewire/contact-form.blade.php --}}
-<form wire:submit.prevent="submit">
-    <div>
-        <label for="name">Name</label>
-        <input wire:model="name" type="text" id="name" required>
-        @error('name') <span class="error">{{ $message }}</span> @enderror
-    </div>
+<div>
+    @if (session()->has('success'))
+        <div class="px-4 py-3 mb-4 text-green-700 bg-green-100 rounded border border-green-400">
+            {{ session('success') }}
+        </div>
+    @endif
     
-    <div>
-        <label for="email">Email</label>
-        <input wire:model="email" type="email" id="email" required>
-        @error('email') <span class="error">{{ $message }}</span> @enderror
-    </div>
-    
-    <div>
-        <label for="message">Message</label>
-        <textarea wire:model="message" id="message" required></textarea>
-        @error('message') <span class="error">{{ $message }}</span> @enderror
-    </div>
-    
-    {{-- Hidden captcha field for v3 --}}
-    <input type="hidden" wire:model="captchaToken" class="captcha-v3-field" data-action="contact">
-    @error('captchaToken') <span class="error">{{ $message }}</span> @enderror
-    
-    <button type="submit">Send Message</button>
-</form>
+    <form wire:submit.prevent="submit" class="space-y-4">
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Name</label>
+            <input type="text" wire:model="name" class="block px-3 py-2 mt-1 w-full rounded-md border border-gray-300">
+            @error('name') <span class="text-sm text-red-500">{{ $message }}</span> @enderror
+        </div>
+        
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Email</label>
+            <input type="email" wire:model="email" class="block px-3 py-2 mt-1 w-full rounded-md border border-gray-300">
+            @error('email') <span class="text-sm text-red-500">{{ $message }}</span> @enderror
+        </div>
+        
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Message</label>
+            <textarea wire:model="message" rows="3" class="block px-3 py-2 mt-1 w-full rounded-md border border-gray-300"></textarea>
+            @error('message') <span class="text-sm text-red-500">{{ $message }}</span> @enderror
+        </div>
+        
+        {{-- Simple captcha field --}}
+        <x-captcha:livewire-field wire:model="captchaToken" action="contact" />
+        @error('captchaToken') <span class="text-red-500">{{ $message }}</span> @enderror
+        
+        <button type="submit" class="px-4 py-2 w-full text-white bg-blue-500 rounded-md hover:bg-blue-600">
+            Submit Form
+        </button>
+    </form>
+</div>
 ```
 
-#### 3. Include Scripts in Your Layout
+#### Traditional Controller
+
+```php
+<?php
+
+use Illuminate\Http\Request;
+use SnipifyDev\LaravelCaptcha\Rules\RecaptchaValidationRule;
+
+class ContactController extends Controller
+{
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email',
+            'message' => 'required|string|min:10',
+            'g-recaptcha-response' => ['required', new RecaptchaValidationRule('contact')],
+        ]);
+        
+        // Process form...
+        return back()->with('success', 'Message sent!');
+    }
+}
+```
+
+### 2. Livewire Attribute-Based Validation
+
+```php
+<?php
+
+use Livewire\Component;
+use SnipifyDev\LaravelCaptcha\Attributes\ValidatesRecaptcha;
+
+class LoginForm extends Component
+{
+    public $email = '';
+    public $password = '';
+    public $captchaToken = '';
+    
+    #[ValidatesRecaptcha('login')]
+    public function authenticate()
+    {
+        // This method only runs if captcha validation passes
+        $this->validate([
+            'email' => 'required|email',
+            'password' => 'required|min:6',
+        ]);
+        
+        // Attempt authentication...
+    }
+    
+    public function render()
+    {
+        return view('livewire.login-form');
+    }
+}
+```
+
+### 3. String-Based Validation Rules
+
+```php
+// Basic usage
+$request->validate([
+    'email' => 'required|email',
+    'captchaToken' => 'required|recaptcha:login'
+]);
+
+// With custom threshold for v3
+$request->validate([
+    'email' => 'required|email',
+    'captchaToken' => 'required|recaptcha:payment,0.8'
+]);
+
+// Force specific version
+$request->validate([
+    'email' => 'required|email',
+    'captchaToken' => 'required|recaptcha:contact,0.5,v2'
+]);
+```
+
+### 4. FormRequest Classes
+
+```php
+<?php
+
+use SnipifyDev\LaravelCaptcha\Http\Requests\BaseRecaptchaRequest;
+
+class ContactRequest extends BaseRecaptchaRequest
+{
+    protected ?string $captchaAction = 'contact';
+    protected ?string $captchaVersion = 'v2';
+    
+    public function authorize(): bool
+    {
+        return true;
+    }
+    
+    public function rules(): array
+    {
+        $rules = [
+            'name' => 'required|string|max:255',
+            'email' => 'required|email',
+            'message' => 'required|string|min:10',
+        ];
+        
+        return $this->withCaptchaRules($rules);
+    }
+}
+
+// Use in controller
+public function store(ContactRequest $request)
+{
+    $validated = $request->validated();
+    // Process form...
+}
+```
+
+### 5. Enhanced WithCaptcha Trait
+
+```php
+<?php
+
+use Livewire\Component;
+use SnipifyDev\LaravelCaptcha\Traits\WithCaptcha;
+
+class ContactForm extends Component
+{
+    use WithCaptcha;
+    
+    public $email = '';
+    public $message = '';
+    
+    public function submit()
+    {
+        // Simple captcha validation
+        $this->validateCaptcha('contact');
+        
+        // Or validate with other fields
+        $this->validateWithCaptcha([
+            'email' => 'required|email',
+            'message' => 'required|min:10'
+        ], [], [], 'contact');
+        
+        // Process form...
+        $this->resetCaptcha();
+    }
+}
+```
+
+## 🧰 Factory Methods & Shortcuts
+
+The `RecaptchaValidationRule` provides convenient factory methods:
+
+```php
+// Common actions
+RecaptchaValidationRule::login()           // For login forms
+RecaptchaValidationRule::register()        // For registration forms  
+RecaptchaValidationRule::contact()         // For contact forms
+RecaptchaValidationRule::comment()         // For comment forms
+RecaptchaValidationRule::payment()         // For payment forms
+
+// Version-specific
+RecaptchaValidationRule::v2()              // Force v2 validation
+RecaptchaValidationRule::v3('action', 0.7) // Force v3 with threshold
+
+// Method chaining
+RecaptchaValidationRule::login()
+    ->threshold(0.8)
+    ->version('v3');
+
+// Livewire attributes
+#[ValidatesRecaptcha::login()]
+#[ValidatesRecaptcha::v2('contact')]
+#[ValidatesRecaptcha::v3('payment', 0.9)]
+```
+
+## 🎛️ Available Components
+
+### Livewire Field Component
 
 ```blade
-{{-- In your layout file --}}
-<x-captcha-script />
+<x-captcha:livewire-field 
+    wire:model="captchaToken"     {{-- Required: Livewire property --}}
+    action="contact"              {{-- Optional: Action for v3 scoring --}}
+    version="v3"                  {{-- Optional: Force version --}}
+    :threshold="0.7"              {{-- Optional: Custom threshold --}}
+    class="my-class"              {{-- Optional: CSS classes --}}
+/>
 ```
 
-## Configuration
+### HTML Field Component (for regular forms)
 
-The package offers extensive configuration options. Here are the most important ones:
+```blade
+<x-captcha:html-field 
+    name="g-recaptcha-response"   {{-- Optional: Field name --}}
+    action="contact"              {{-- Optional: Action for v3 --}}
+    version="v2"                  {{-- Optional: Force version --}}
+/>
+```
+
+### Script Component
+
+```blade
+{{-- Include before closing </body> tag --}}
+<x-captcha:script />
+```
+
+## ⚙️ Configuration
+
+Publish the config file for advanced customization:
 
 ### Basic Configuration
 
+Optionally publish the config file:
+
+```bash
+php artisan vendor:publish --tag=captcha-config
+```
+
 ```php
 // config/captcha.php
-
 return [
     // Choose version: 'v2', 'v3', or false to disable
     'default' => env('CAPTCHA_VERSION', 'v3'),
     
-    // Skip captcha in testing
-    'skip_testing' => env('CAPTCHA_SKIP_TESTING', true),
-    
-    // Fake captcha in development
-    'fake_in_development' => env('CAPTCHA_FAKE_DEVELOPMENT', false),
+    // Automatically disabled in testing
+    'testing' => [
+        'enabled' => env('CAPTCHA_TESTING', env('APP_ENV') === 'testing'),
+    ],
     
     // API keys
     'services' => [
@@ -278,416 +402,208 @@ return [
             'v2_secret_key' => env('RECAPTCHAV2_SECRET'),
         ],
     ],
+    
+    // v3 specific settings
+    'v3' => [
+        'score_threshold' => env('RECAPTCHA_SCORE_THRESHOLD', 0.5),
+        'actions' => [
+            'login' => 0.5,
+            'register' => 0.7,
+            'contact' => 0.5,
+            'payment' => 0.8,
+        ],
+    ],
 ];
 ```
 
-### reCAPTCHA v3 Configuration
+## 🧰 WithCaptcha Trait Methods
+
+The `WithCaptcha` trait provides these convenient methods:
 
 ```php
-'v3' => [
-    'default_threshold' => 0.5,
-    
-    // Different thresholds for different actions
-    'thresholds' => [
-        'login' => 0.5,
-        'register' => 0.7,
-        'contact' => 0.5,
-        'payment' => 0.8,
-    ],
-    
-    'badge' => [
-        'hide' => false,
-        'position' => 'bottomright', // bottomright, bottomleft, inline
-    ],
-],
-```
+// Get validation rules with captcha included
+protected function withCaptchaRules(array $rules, string $action = 'default'): array
 
-### reCAPTCHA v2 Configuration
+// Get individual captcha rule
+protected function captchaRule(string $action = 'default', ?float $threshold = null)
 
-```php
-'v2' => [
-    'theme' => 'light', // light, dark
-    'size' => 'normal', // normal, compact
-    'type' => 'image', // image, audio
-    'invisible' => false, // Enable invisible reCAPTCHA
-],
-```
+// Reset captcha after form submission
+public function resetCaptcha(): void
 
-### Form-specific Settings
-
-```php
-'forms' => [
-    'login' => true,
-    'register' => true,
-    'contact' => true,
-    'payment' => true,
-    // Add your custom actions here
-],
-```
-
-## Usage Examples
-
-### Using the Facade
-
-```php
-use YourVendor\LaravelCaptcha\Facades\Captcha;
+// Refresh captcha token (for error recovery)
+public function refreshCaptchaToken(): void
 
 // Check if captcha is enabled
-if (Captcha::isEnabled('login')) {
-    // Perform validation
-}
+public function isCaptchaEnabled(): bool
 
-// Verify a token manually
-$isValid = Captcha::verify($token, 'login', 0.7);
+// Get current captcha version
+public function getCaptchaVersion(): string
 
-// Get score for v3 (returns null for v2)
-$score = Captcha::getScore($token, 'login');
-
-// Get site key
-$siteKey = Captcha::getSiteKey();
-
-// Switch version temporarily
-Captcha::setVersion('v2');
+// Validate form with captcha (backward compatibility)
+public function validateWithCaptcha(array $rules, array $messages = [], array $attributes = [], string $action = 'default'): array
 ```
 
-### Using Validation Rules
+## 🔧 Available Components
 
-```php
-use YourVendor\LaravelCaptcha\Rules\RecaptchaV3Rule;
-use YourVendor\LaravelCaptcha\Rules\RecaptchaV2Rule;
-
-// v3 with custom threshold
-'captcha' => ['required', RecaptchaV3Rule::login(0.8)],
-
-// v3 with different actions
-'captcha' => ['required', RecaptchaV3Rule::payment()],
-'captcha' => ['required', RecaptchaV3Rule::contact()],
-'captcha' => ['required', RecaptchaV3Rule::register()],
-
-// v2 rule
-'captcha' => ['required', RecaptchaV2Rule::make()],
-
-// Using string validation (Laravel 8.x style)
-'captcha' => 'required|recaptcha:contact,0.7',
-```
-
-### Using Middleware
-
-```php
-// In your routes
-Route::post('/api/submit', [ApiController::class, 'submit'])
-    ->middleware('captcha:api,0.8');
-
-// In your controller constructor
-public function __construct()
-{
-    $this->middleware('captcha:payment,0.9')->only(['store', 'update']);
-}
-```
-
-### Custom Blade Components
+### Livewire Field Component
 
 ```blade
-{{-- Basic usage --}}
-<x-captcha-field />
-
-{{-- With custom action and name --}}
-<x-captcha-field action="review" name="recaptcha_response" />
-
-{{-- With custom CSS classes --}}
-<x-captcha-field 
-    action="payment" 
-    class="my-captcha-field"
-    wrapper-class="my-wrapper"
-/>
-
-{{-- Force specific version --}}
-<x-captcha-field action="contact" version="v2" />
-
-{{-- For v2 with custom attributes --}}
-<x-captcha-field 
-    version="v2" 
-    :attributes="['data-theme' => 'dark', 'data-size' => 'compact']"
+<x-captcha::livewire-field 
+    wire-model="captchaToken"     {{-- Required: Livewire model --}}
+    action="contact"              {{-- Optional: Action name for scoring --}}
+    version="v3"                  {{-- Optional: Force specific version --}}
+    :show-error="true"            {{-- Optional: Show error messages --}}
+    class="custom-class"          {{-- Optional: Additional CSS classes --}}
 />
 ```
 
-### Multiple Forms on Same Page
+### Script Component
 
 ```blade
-{{-- Login form --}}
-<form id="login-form">
-    <input type="email" name="email">
-    <input type="password" name="password">
-    <x-captcha-field action="login" id="login-captcha" />
-    <button type="submit">Login</button>
-</form>
-
-{{-- Register form --}}
-<form id="register-form">
-    <input type="text" name="name">
-    <input type="email" name="email">
-    <input type="password" name="password">
-    <x-captcha-field action="register" id="register-captcha" />
-    <button type="submit">Register</button>
-</form>
-
-{{-- Include scripts once --}}
-<x-captcha-script />
+<x-captcha::script />
 ```
 
-## Livewire Integration
+## 🧪 Testing
 
-### WithCaptcha Trait
-
-The `WithCaptcha` trait provides convenient methods for Livewire components:
+The package automatically disables validation in testing environments:
 
 ```php
-use YourVendor\LaravelCaptcha\Traits\WithCaptcha;
-
-class MyComponent extends Component
+// In your tests
+public function test_contact_form_submission()
 {
-    use WithCaptcha;
-    
-    public function someAction()
-    {
-        $this->validate([
-            'captchaToken' => $this->captchaRule('action_name'),
-        ]);
-        
-        // Refresh token after successful action
-        $this->refreshCaptchaToken();
-    }
-    
-    // Manual token refresh
-    public function refreshToken()
-    {
-        $this->refreshCaptchaToken();
-    }
-}
-```
-
-### Livewire Events
-
-```php
-// In your Livewire component
-$this->dispatch('captcha:refresh');
-
-// Listen in JavaScript
-Livewire.on('captcha:refresh', () => {
-    // Token will be automatically refreshed
-});
-```
-
-### Auto-refresh Configuration
-
-```php
-// config/captcha.php
-'livewire' => [
-    'enabled' => true,
-    'auto_refresh' => true,
-    'refresh_interval' => 110, // seconds
-    'emit_events' => true,
-],
-```
-
-## Testing
-
-### Skip Captcha in Tests
-
-```php
-// In your test
-public function test_form_submission()
-{
-    config(['captcha.skip_testing' => true]);
-    
     $response = $this->post('/contact', [
         'name' => 'John Doe',
         'email' => 'john@example.com',
         'message' => 'Test message',
-        'captcha_token' => 'any_value', // Will be ignored
+        'captchaToken' => 'fake-token', // Ignored in testing
     ]);
     
-    $response->assertStatus(200);
+    $response->assertRedirect()->assertSessionHas('success');
+}
+
+// For Livewire tests
+public function test_livewire_form()
+{
+    Livewire::test(ContactForm::class)
+        ->set('name', 'John')
+        ->set('email', 'john@test.com')
+        ->set('message', 'Hello world')
+        ->set('captchaToken', 'fake-token')
+        ->call('submit')
+        ->assertHasNoErrors();
 }
 ```
 
-### Using Test Keys
+## 🌍 Version Support
 
-```php
-// Set test keys in your testing environment
-config([
-    'captcha.development.use_test_keys' => true,
-    'captcha.services.recaptcha.site_key' => '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI',
-    'captcha.services.recaptcha.secret_key' => '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe',
-]);
-```
+### Google reCAPTCHA v3 ✅
+- **Score-based validation** (0.0 to 1.0)
+- **Action-specific scoring** for better accuracy
+- **Invisible to users** - no interaction required
+- **Better user experience** - no clicking required
 
-## Error Handling
+### Google reCAPTCHA v2 ✅  
+- **Checkbox validation** - "I'm not a robot"
+- **Invisible v2** - triggered programmatically
+- **Fallback support** for older implementations
+- **Visual confirmation** - users know they completed it
 
-### Custom Error Messages
+### Cloudflare Turnstile 🔜 Coming Soon
+- **Privacy-focused** alternative to Google reCAPTCHA
+- **Better performance** and user experience  
+- **GDPR compliant** - no user data sent to Google
+- **Same API** - drop-in replacement when available
 
-```php
-// config/captcha.php
-'errors' => [
-    'messages' => [
-        'required' => 'Please complete the captcha verification.',
-        'invalid' => 'Captcha verification failed. Please try again.',
-        'score_too_low' => 'Security check failed. Please try again.',
-        'expired' => 'Captcha has expired. Please refresh and try again.',
-    ],
-],
-```
-
-### Exception Handling
-
-```php
-use YourVendor\LaravelCaptcha\Exceptions\CaptchaValidationException;
-
-try {
-    Captcha::verify($token, 'login');
-} catch (CaptchaValidationException $e) {
-    logger()->error('Captcha validation failed', [
-        'message' => $e->getMessage(),
-        'score' => $e->getScore(),
-        'action' => $e->getAction(),
-        'response_data' => $e->getResponseData(),
-    ]);
-}
-```
-
-## Advanced Features
-
-### Caching
-
-Enable caching to reduce API calls:
-
-```php
-// config/captcha.php
-'cache' => [
-    'enabled' => true,
-    'driver' => null, // Uses default cache driver
-    'ttl' => 300, // 5 minutes
-    'cache_failures' => true,
-],
-```
-
-### Rate Limiting
-
-Prevent abuse with rate limiting:
-
-```php
-'rate_limiting' => [
-    'enabled' => true,
-    'max_attempts' => 10,
-    'decay_minutes' => 1,
-],
-```
-
-### Security Options
-
-```php
-'security' => [
-    'verify_hostname' => true,
-    'expected_hostname' => null, // Uses APP_URL if null
-    'verify_ip' => false,
-    'allow_localhost' => true,
-],
-```
-
-## Troubleshooting
+## 🐛 Troubleshooting
 
 ### Common Issues
 
 #### 1. "Site key not found" Error
-
 ```bash
-# Check your environment variables
 php artisan config:clear
-php artisan cache:clear
-
-# Verify your .env file has the correct keys
-RECAPTCHAV3_SITEKEY=your_actual_site_key
-RECAPTCHAV3_SECRET=your_actual_secret_key
+# Verify your .env keys are correct
 ```
 
-#### 2. JavaScript Not Loading
+#### 2. Validation Always Fails
+```env
+# Check your secret key is correct
+LARAVEL_CAPTCHA_SECRET_KEY_V3=correct_secret_here
 
-```blade
-{{-- Ensure you're including the script component --}}
-<x-captcha-script />
-
-{{-- Check browser console for JavaScript errors --}}
-{{-- Verify assets are published --}}
-php artisan vendor:publish --tag=captcha-assets --force
+# Or enable fake mode for development
+LARAVEL_CAPTCHA_FAKE_IN_DEVELOPMENT=true
 ```
 
-#### 3. Livewire Integration Issues
+#### 3. JavaScript Errors
+- Include `<x-captcha:script />` before `</body>`
+- Check browser console for detailed errors
+- Verify site key matches your domain
 
+#### 4. Livewire Property Missing
 ```php
-// Make sure Livewire is properly configured
-// Check that wire:model is bound to captchaToken
-
-public $captchaToken; // This property must exist
-```
-
-#### 4. Validation Always Failing
-
-```php
-// Check if you're in testing mode
-config(['captcha.skip_testing' => true]);
-
-// Or enable fake mode for development
-config(['captcha.fake_in_development' => true]);
-
-// Verify your secret key is correct
-```
-
-#### 5. Tokens Expiring Too Quickly
-
-```php
-// Increase refresh interval (v3 tokens expire after 2 minutes)
-config(['captcha.livewire.refresh_interval' => 110]); // Refresh every 110 seconds
+// Make sure your component has the captcha property
+public $captchaToken = '';
 ```
 
 ### Debug Mode
 
-Enable debug mode to see detailed information:
+Enable detailed logging:
 
 ```env
-CAPTCHA_DEBUG=true
+LARAVEL_CAPTCHA_LOG_ERRORS=true
+LARAVEL_CAPTCHA_LOG_LEVEL=debug
 ```
 
-This will show:
-- Field initialization logs
-- Token generation details
-- Error information
-- Configuration details
+## 📈 Migration Guide
 
-### Getting Help
+### From Manual Validation
 
-1. Check the browser console for JavaScript errors
-2. Enable debug mode for detailed logging
-3. Verify your reCAPTCHA keys are correct
-4. Test with Google's test keys first
-5. Check Laravel logs for detailed error messages
+**Before:**
+```php
+$captchaRule = new Recaptcha('login', null);
+$captchaError = null;
+$captchaRule->validate('captchaToken', $this->captchaToken, function ($message) use (&$captchaError) {
+    $captchaError = $message;
+});
 
-## Changelog
+if ($captchaError) {
+    $this->addError('captchaToken', $captchaError);
+    return;
+}
+```
 
-Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.
+**After:**
+```php
+$this->validate([
+    'captchaToken' => ['required', new RecaptchaValidationRule('login')]
+]);
+```
 
-## Contributing
+### From Old Package Versions
 
-Please see [CONTRIBUTING](CONTRIBUTING.md) for details.
+1. **Update validation syntax** - Use new `RecaptchaValidationRule`
+2. **Update environment variables** - New naming convention
+3. **Update component usage** - New component names
+4. **Remove manual error handling** - Now handled by Laravel
 
-## Security Vulnerabilities
+## 🤝 Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+## 🛡️ Security
 
 Please review [our security policy](../../security/policy) on how to report security vulnerabilities.
 
-## Credits
-
-- [Your Name](https://github.com/your-username)
-- [All Contributors](../../contributors)
-
-## License
+## 📄 License
 
 The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+
+---
+
+## 🚀 Why Choose This Package?
+
+- ✅ **Laravel Native** - Uses proper Laravel validation patterns
+- ✅ **Multiple Approaches** - Choose what fits your architecture  
+- ✅ **Well Tested** - Production-ready with comprehensive tests
+- ✅ **Future Proof** - Built for modern Laravel and Livewire
+- ✅ **Developer Friendly** - Extensive documentation and examples
+- ✅ **Performance Optimized** - Minimal overhead and smart caching

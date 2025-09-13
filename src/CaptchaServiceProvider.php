@@ -5,15 +5,10 @@ namespace SnipifyDev\LaravelCaptcha;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
-use SnipifyDev\LaravelCaptcha\Services\CaptchaManager;
-use SnipifyDev\LaravelCaptcha\Services\RecaptchaV2Service;
-use SnipifyDev\LaravelCaptcha\Services\RecaptchaV3Service;
-use SnipifyDev\LaravelCaptcha\View\Components\CaptchaField;
-use SnipifyDev\LaravelCaptcha\View\Components\CaptchaScript;
-use SnipifyDev\LaravelCaptcha\Http\Middleware\VerifyCaptcha;
-use SnipifyDev\LaravelCaptcha\Rules\RecaptchaV2Rule;
-use SnipifyDev\LaravelCaptcha\Rules\RecaptchaV3Rule;
+use SnipifyDev\LaravelCaptcha\Services\RecaptchaService;
+use SnipifyDev\LaravelCaptcha\View\Components\Recaptcha;
+use SnipifyDev\LaravelCaptcha\Rules\Recaptcha as RecaptchaRule;
+use SnipifyDev\LaravelCaptcha\Rules\RecaptchaValidationRule;
 
 class CaptchaServiceProvider extends ServiceProvider
 {
@@ -27,7 +22,6 @@ class CaptchaServiceProvider extends ServiceProvider
         $this->bootAssets();
         $this->bootBladeComponents();
         $this->bootValidationRules();
-        $this->bootMiddleware();
         $this->bootCommands();
     }
 
@@ -36,7 +30,7 @@ class CaptchaServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->mergeConfigFrom($this->getConfigPath(), 'captcha');
+        $this->mergeConfigFrom($this->getConfigPath(), 'laravel-captcha');
 
         $this->registerServices();
         $this->registerFacades();
@@ -48,8 +42,8 @@ class CaptchaServiceProvider extends ServiceProvider
     protected function bootConfig(): void
     {
         $this->publishes([
-            $this->getConfigPath() => config_path('captcha.php'),
-        ], 'captcha-config');
+            $this->getConfigPath() => config_path('laravel-captcha.php'),
+        ], 'recaptcha-config');
     }
 
     /**
@@ -57,11 +51,11 @@ class CaptchaServiceProvider extends ServiceProvider
      */
     protected function bootViews(): void
     {
-        $this->loadViewsFrom($this->getViewsPath(), 'captcha');
+        $this->loadViewsFrom($this->getViewsPath(), 'recaptcha');
 
         $this->publishes([
-            $this->getViewsPath() => resource_path('views/vendor/captcha'),
-        ], 'captcha-views');
+            $this->getViewsPath() => resource_path('views/vendor/recaptcha'),
+        ], 'recaptcha-views');
     }
 
     /**
@@ -70,8 +64,8 @@ class CaptchaServiceProvider extends ServiceProvider
     protected function bootAssets(): void
     {
         $this->publishes([
-            $this->getAssetsPath() => public_path('vendor/laravel-captcha'),
-        ], 'captcha-assets');
+            $this->getAssetsPath() => public_path('vendor/recaptcha'),
+        ], 'recaptcha-assets');
     }
 
     /**
@@ -79,16 +73,20 @@ class CaptchaServiceProvider extends ServiceProvider
      */
     protected function bootBladeComponents(): void
     {
-        // Register Blade components with backward compatibility
-        if (method_exists(Blade::class, 'component')) {
-            Blade::component('captcha-script', CaptchaScript::class);
-            Blade::component('captcha-field', CaptchaField::class);
-        }
-
-        // For Laravel 7+ anonymous components
-        if (method_exists(Blade::class, 'anonymousComponentNamespace')) {
-            Blade::anonymousComponentNamespace('captcha', 'captcha');
-        }
+        // Register captcha components
+        $this->loadViewComponentsAs('captcha', [
+            'script' => \SnipifyDev\LaravelCaptcha\View\Components\CaptchaScript::class,
+            'livewire-field' => \SnipifyDev\LaravelCaptcha\View\Components\LivewireField::class,
+            'html-field' => \SnipifyDev\LaravelCaptcha\View\Components\HtmlField::class,
+        ]);
+        
+        // Register simplified Blade component
+        $this->loadViewComponentsAs('recaptcha', [
+            'field' => Recaptcha::class,
+        ]);
+        
+        // Also register without namespace for convenience
+        Blade::component('recaptcha', Recaptcha::class);
     }
 
     /**
@@ -96,57 +94,82 @@ class CaptchaServiceProvider extends ServiceProvider
      */
     protected function bootValidationRules(): void
     {
-        // Extend validator with captcha rules
+        // Register the string-based validation rule for backward compatibility
         Validator::extend('recaptcha', function ($attribute, $value, $parameters, $validator) {
-            $version = config('captcha.default');
+            $action = !empty($parameters[0]) ? $parameters[0] : null;
+            $threshold = !empty($parameters[1]) ? (float) $parameters[1] : null;
+            $version = !empty($parameters[2]) ? $parameters[2] : null;
+
+            $rule = new RecaptchaValidationRule($action, $threshold, $version);
             
-            if (!$version || $this->shouldSkipValidation()) {
-                return true;
-            }
-
-            $action = $parameters[0] ?? 'default';
-            $threshold = isset($parameters[1]) ? (float) $parameters[1] : null;
-
             try {
-                if ($version === 'v3') {
-                    $rule = new RecaptchaV3Rule($action, $threshold);
-                } else {
-                    $rule = new RecaptchaV2Rule();
-                }
-
-                return $rule->passes($attribute, $value);
+                $errorMessage = null;
+                $rule($attribute, $value, function($message) use (&$errorMessage) {
+                    $errorMessage = $message;
+                });
+                
+                // If there's an error message, it failed validation
+                return $errorMessage === null;
             } catch (\Exception $e) {
-                if (config('captcha.errors.log_errors')) {
-                    logger()->log(
-                        config('captcha.errors.log_level', 'warning'),
-                        'Captcha validation error: ' . $e->getMessage(),
-                        ['exception' => $e]
-                    );
-                }
+                // Log the exception for debugging
+                logger()->error('reCAPTCHA validation exception', [
+                    'attribute' => $attribute,
+                    'error' => $e->getMessage(),
+                    'action' => $action,
+                    'version' => $version
+                ]);
                 return false;
             }
         });
 
+        // Make the rule implicit (validates even when field is empty)
+        Validator::extendImplicit('recaptcha', function ($attribute, $value, $parameters, $validator) {
+            return app()->call([$this, 'validateRecaptcha'], compact('attribute', 'value', 'parameters', 'validator'));
+        });
+
+        // Register custom error message replacer
         Validator::replacer('recaptcha', function ($message, $attribute, $rule, $parameters) {
-            return config('captcha.errors.messages.invalid', $message);
+            $action = !empty($parameters[0]) ? $parameters[0] : null;
+            $version = !empty($parameters[2]) ? $parameters[2] : null;
+            
+            // Get appropriate error message based on context
+            if ($version === 'v3') {
+                return config('laravel-captcha.errors.messages.score_too_low', 'reCAPTCHA score too low. Please try again.');
+            }
+            
+            return config('laravel-captcha.errors.messages.invalid', 'reCAPTCHA verification failed. Please try again.');
         });
     }
 
     /**
-     * Bootstrap middleware
+     * Validate reCAPTCHA using the new rule (for implicit validation)
      */
-    protected function bootMiddleware(): void
+    protected function validateRecaptcha($attribute, $value, $parameters, $validator)
     {
-        // Register middleware with router (Laravel 5.4+)
-        if (method_exists($this->app['router'], 'aliasMiddleware')) {
-            $this->app['router']->aliasMiddleware('captcha', VerifyCaptcha::class);
-        }
+        $action = !empty($parameters[0]) ? $parameters[0] : null;
+        $threshold = !empty($parameters[1]) ? (float) $parameters[1] : null;
+        $version = !empty($parameters[2]) ? $parameters[2] : null;
 
-        // Backward compatibility for older Laravel versions
-        if (method_exists($this->app['router'], 'middleware')) {
-            $this->app['router']->middleware('captcha', VerifyCaptcha::class);
+        $rule = new RecaptchaValidationRule($action, $threshold, $version);
+        
+        try {
+            $errorMessage = null;
+            $rule($attribute, $value, function($message) use (&$errorMessage) {
+                $errorMessage = $message;
+            });
+            
+            return $errorMessage === null;
+        } catch (\Exception $e) {
+            logger()->error('reCAPTCHA implicit validation exception', [
+                'attribute' => $attribute,
+                'error' => $e->getMessage(),
+                'action' => $action,
+                'version' => $version
+            ]);
+            return false;
         }
     }
+
 
     /**
      * Bootstrap Artisan commands
@@ -163,32 +186,13 @@ class CaptchaServiceProvider extends ServiceProvider
      */
     protected function registerServices(): void
     {
-        // Register reCAPTCHA v2 service
-        $this->app->singleton(RecaptchaV2Service::class, function ($app) {
-            return new RecaptchaV2Service(
-                $app['config']->get('captcha'),
-                $app['log']
-            );
+        // Register the simplified reCAPTCHA service
+        $this->app->singleton(RecaptchaService::class, function ($app) {
+            return new RecaptchaService();
         });
 
-        // Register reCAPTCHA v3 service
-        $this->app->singleton(RecaptchaV3Service::class, function ($app) {
-            return new RecaptchaV3Service(
-                $app['config']->get('captcha'),
-                $app['log']
-            );
-        });
-
-        // Register captcha manager
-        $this->app->singleton(CaptchaManager::class, function ($app) {
-            return new CaptchaManager(
-                $app,
-                $app['config']->get('captcha')
-            );
-        });
-
-        // Bind the manager to the 'captcha' key for facade
-        $this->app->bind('captcha', CaptchaManager::class);
+        // Bind the service to 'recaptcha' key for facade
+        $this->app->bind('recaptcha', RecaptchaService::class);
     }
 
     /**
@@ -200,29 +204,11 @@ class CaptchaServiceProvider extends ServiceProvider
     }
 
     /**
-     * Check if validation should be skipped
-     */
-    protected function shouldSkipValidation(): bool
-    {
-        // Skip in testing environment
-        if (config('captcha.skip_testing', true) && app()->environment('testing')) {
-            return true;
-        }
-
-        // Skip in development if fake mode is enabled
-        if (config('captcha.fake_in_development', false) && app()->environment('local')) {
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
      * Get the config file path
      */
     protected function getConfigPath(): string
     {
-        return __DIR__ . '/../config/captcha.php';
+        return __DIR__ . '/../config/laravel-captcha.php';
     }
 
     /**
@@ -247,10 +233,8 @@ class CaptchaServiceProvider extends ServiceProvider
     public function provides(): array
     {
         return [
-            'captcha',
-            CaptchaManager::class,
-            RecaptchaV2Service::class,
-            RecaptchaV3Service::class,
+            'recaptcha',
+            RecaptchaService::class,
         ];
     }
 }
