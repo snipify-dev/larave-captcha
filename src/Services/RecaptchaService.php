@@ -151,15 +151,6 @@ class RecaptchaService
         return config('laravel-captcha.default') !== false && !$this->shouldSkipValidation();
     }
 
-    /**
-     * Get available actions with their thresholds.
-     *
-     * @return array
-     */
-    public function getActionThresholds(): array
-    {
-        return config('laravel-captcha.action_thresholds', []);
-    }
 
     /**
      * Determine reCAPTCHA version based on token characteristics.
@@ -211,13 +202,6 @@ class RecaptchaService
      */
     protected function getScoreThreshold(?string $action = null): float
     {
-        if ($action) {
-            $actionThreshold = config("laravel-captcha.action_thresholds.{$action}");
-            if ($actionThreshold !== null) {
-                return (float) $actionThreshold;
-            }
-        }
-
         return (float) config('laravel-captcha.score_threshold', 0.5);
     }
 

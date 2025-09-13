@@ -46,20 +46,6 @@ return [
     */
     'score_threshold' => env('RECAPTCHA_SCORE_THRESHOLD', 0.5),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Action-specific Thresholds
-    |--------------------------------------------------------------------------
-    |
-    | Set different score thresholds for different actions.
-    | Only configure thresholds for actions you actually use.
-    |
-    */
-    'action_thresholds' => [
-        'login' => env('RECAPTCHA_LOGIN_THRESHOLD', 0.5),
-        'contact' => env('RECAPTCHA_CONTACT_THRESHOLD', 0.5),
-        'notify_me' => env('RECAPTCHA_NOTIFY_THRESHOLD', 0.5),
-    ],
 
     /*
     |--------------------------------------------------------------------------

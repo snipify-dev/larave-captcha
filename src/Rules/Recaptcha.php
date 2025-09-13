@@ -191,14 +191,6 @@ class Recaptcha implements ValidationRule
             return $this->threshold;
         }
 
-        // Use action-specific threshold if available
-        if ($this->action) {
-            $actionThreshold = config("laravel-captcha.action_thresholds.{$this->action}");
-            if ($actionThreshold !== null) {
-                return (float) $actionThreshold;
-            }
-        }
-
         // Fallback to default threshold
         return (float) config('laravel-captcha.score_threshold', 0.5);
     }

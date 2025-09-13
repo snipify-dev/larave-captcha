@@ -96,13 +96,6 @@ class Recaptcha extends Component
             return $this->threshold;
         }
 
-        if ($this->action) {
-            $actionThreshold = config("laravel-captcha.action_thresholds.{$this->action}");
-            if ($actionThreshold !== null) {
-                return (float) $actionThreshold;
-            }
-        }
-
         return (float) config('laravel-captcha.score_threshold', 0.5);
     }
 
