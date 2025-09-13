@@ -199,8 +199,8 @@ new RecaptchaValidationRule('payment')   // For payments
 // Force v2 validation
 new RecaptchaValidationRule('login', null, 'v2')
 
-// Force v3 with custom threshold
-new RecaptchaValidationRule('payment', 0.8, 'v3')
+// Force v3 validation  
+new RecaptchaValidationRule('login', null, 'v3')
 ```
 
 ## Testing
