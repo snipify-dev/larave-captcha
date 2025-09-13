@@ -50,9 +50,6 @@ RECAPTCHAV3_SITEKEY=your_v3_site_key_here
 # reCAPTCHA v2 Keys (optional)
 RECAPTCHAV2_SECRET=your_v2_secret_key_here
 RECAPTCHAV2_SITEKEY=your_v2_site_key_here
-
-# Optional: Score threshold for v3 (default: 0.5)
-RECAPTCHA_SCORE_THRESHOLD=0.5
 ```
 
 ### 4. Clear Configuration Cache
@@ -182,25 +179,16 @@ Add this to your layout before closing `</body>` tag:
 
 ## Validation Rules
 
-### Common Actions
-
 ```php
-// Use predefined actions
-new RecaptchaValidationRule('login')     // For login forms
-new RecaptchaValidationRule('register')  // For registration
-new RecaptchaValidationRule('contact')   // For contact forms
-new RecaptchaValidationRule('comment')   // For comments
-new RecaptchaValidationRule('payment')   // For payments
-```
+// Basic usage with any action name
+new RecaptchaValidationRule('login')
+new RecaptchaValidationRule('contact') 
+new RecaptchaValidationRule('signup')
+new RecaptchaValidationRule('any_action_name')
 
-### Force Specific Version
-
-```php
-// Force v2 validation
-new RecaptchaValidationRule('login', null, 'v2')
-
-// Force v3 validation  
-new RecaptchaValidationRule('login', null, 'v3')
+// Force specific version if needed
+new RecaptchaValidationRule('login', null, 'v2')  // Force v2
+new RecaptchaValidationRule('login', null, 'v3')  // Force v3
 ```
 
 ## Testing
