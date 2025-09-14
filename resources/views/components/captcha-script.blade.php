@@ -17,7 +17,6 @@
                     this.siteKey = window.captchaConfig?.site_key || window.captchaSiteKey;
                     this.version = window.captchaConfig?.version || '{{ $version }}';
                     this.initialized = false;
-                    this.pendingFields = new Set();
                     this.widgetIds = new Map(); // Track widget IDs for proper cleanup
 
                     if (!this.siteKey) return;
@@ -56,12 +55,7 @@
 
                     if (version === 'v3') {
                         this.setupV3FormInterception(field, action);
-                        // For v3, also generate token immediately if field is empty
-                        if (!field.value) {
-                            setTimeout(() => {
-                                this.generateV3Token(field, action).catch(console.error);
-                            }, 100);
-                        }
+                        // Pure JIT: No initial token generation - tokens generated only on form submission
                     } else {
                         this.renderV2Widget(field);
                     }
@@ -91,46 +85,32 @@
                     // Reset the field state
                     field.dataset.captchaInitialized = 'false';
                     field.value = '';
-
-                    // Remove from pending fields if it's there
-                    this.pendingFields.delete(field);
                 }
 
                 generateV3Token(field, action) {
                     return new Promise((resolve, reject) => {
-                        if (this.pendingFields.has(field)) {
-                            resolve(field.value);
-                            return;
-                        }
-
-                        this.pendingFields.add(field);
-
                         grecaptcha.ready(() => {
                             // Get the correct site key for v3
                             const v3SiteKey = this.getV3SiteKey() || this.siteKey;
-                            
-                            
-                            // Try to use v3 execute method first
+
+                            // Always generate fresh token using v3 execute method
                             if (typeof grecaptcha.execute === 'function') {
-                                // For v3 script loaded with ?render=sitekey, we use the site key that was rendered
                                 grecaptcha.execute(v3SiteKey, { action: action })
                                     .then(token => {
                                         field.value = token;
                                         field.dispatchEvent(new Event('input', { bubbles: true }));
-                                        this.pendingFields.delete(field);
                                         resolve(token);
                                     })
                                     .catch(error => {
                                         console.error('v3 token generation failed:', error);
-                                        this.pendingFields.delete(field);
                                         reject(error);
                                     });
                             } else {
-                                // For v3 with v2 script, we need to render an invisible widget
+                                // Fallback: render invisible widget for v3 with v2 script
                                 const container = document.createElement('div');
                                 container.style.visibility = 'hidden';
                                 field.parentElement.appendChild(container);
-                                
+
                                 grecaptcha.render(container, {
                                     sitekey: v3SiteKey,
                                     size: 'invisible',
@@ -138,11 +118,10 @@
                                         field.value = token;
                                         field.dispatchEvent(new Event('input', { bubbles: true }));
                                         container.remove();
-                                        this.pendingFields.delete(field);
                                         resolve(token);
                                     }
                                 });
-                                
+
                                 // Trigger the invisible widget
                                 setTimeout(() => grecaptcha.execute(), 100);
                             }
@@ -151,100 +130,73 @@
                 }
 
                 setupV3FormInterception(field, action) {
-                    // Find the parent form or Livewire component
                     const form = field.closest('form');
-                    const livewireComponent = field.closest('[wire\\:id]');
-
-                    if (!form && !livewireComponent) {
-                        console.error('v3 captcha field must be inside a form or Livewire component');
+                    
+                    if (!form) {
+                        console.error('v3 captcha field must be inside a form');
                         return;
                     }
 
-                    // Mark field as v3 and store action
-                    field.dataset.v3Action = action;
-                    field.dataset.v3Intercepted = 'true';
-
-                    // For Livewire forms, use wire:submit interception
-                    if (form && form.hasAttribute('wire:submit') || form && form.hasAttribute('wire:submit.prevent')) {
-                        if (!form.dataset.captchaIntercepted) {
-                            form.dataset.captchaIntercepted = 'true';
-
-                            // Store original wire:submit value
-                            const originalWireSubmit = form.getAttribute('wire:submit') || form.getAttribute('wire:submit.prevent');
-
-                            // Add our interceptor
-                            form.addEventListener('submit', async (event) => {
-                                const v3Fields = form.querySelectorAll('[data-captcha-version="v3"]');
-
-                                if (v3Fields.length > 0) {
-                                    // Check if tokens are already generated
-                                    const needsToken = Array.from(v3Fields).some(v3Field => !v3Field.value);
-
-                                    if (needsToken) {
-                                        // Prevent submission until tokens are generated
-                                        event.preventDefault();
-                                        event.stopPropagation();
-
-                                        try {
-                                            // Generate tokens for all v3 fields
-                                            const promises = Array.from(v3Fields).map(v3Field => {
-                                                const fieldAction = v3Field.dataset.v3Action || 'default';
-                                                return window.SimpleCaptcha.generateV3Token(v3Field, fieldAction);
-                                            });
-
-                                            await Promise.all(promises);
-
-                                            // Manually trigger Livewire method after token generation
-                                            const livewireId = livewireComponent ? livewireComponent.getAttribute('wire:id') : null;
-                                            if (livewireId && originalWireSubmit) {
-                                                // Call the Livewire method directly
-                                                Livewire.find(livewireId).call(originalWireSubmit.replace('prevent', '').trim());
-                                            }
-                                        } catch (error) {
-                                            console.error('Captcha token generation failed:', error);
-                                            // Allow form to proceed anyway
-                                            const livewireId = livewireComponent ? livewireComponent.getAttribute('wire:id') : null;
-                                            if (livewireId && originalWireSubmit) {
-                                                Livewire.find(livewireId).call(originalWireSubmit.replace('prevent', '').trim());
-                                            }
-                                        }
-                                    }
-                                }
-                            }, true);
-                        }
+                    // Skip if form already intercepted
+                    if (form.dataset.captchaIntercepted) {
+                        return;
                     }
-                    // For regular forms
-                    else if (form && !form.dataset.captchaIntercepted) {
-                        form.dataset.captchaIntercepted = 'true';
 
-                        form.addEventListener('submit', async (event) => {
-                            const v3Fields = form.querySelectorAll('[data-captcha-version="v3"]');
+                    form.dataset.captchaIntercepted = 'true';
 
-                            if (v3Fields.length > 0) {
-                                const needsToken = Array.from(v3Fields).some(v3Field => !v3Field.value);
+                    form.addEventListener('submit', async (event) => {
+                        // Always prevent default submission
+                        event.preventDefault();
+                        event.stopPropagation();
 
-                                if (needsToken) {
-                                    event.preventDefault();
-                                    event.stopPropagation();
+                        const v3Fields = form.querySelectorAll('[data-captcha-version="v3"]');
 
-                                    try {
-                                        const promises = Array.from(v3Fields).map(v3Field => {
-                                            const fieldAction = v3Field.dataset.v3Action || 'default';
-                                            return window.SimpleCaptcha.generateV3Token(v3Field, fieldAction);
-                                        });
-
-                                        await Promise.all(promises);
-
-                                        // Re-submit the form
-                                        form.submit();
-                                    } catch (error) {
-                                        console.error('Captcha token generation failed:', error);
-                                        form.submit();
-                                    }
-                                }
+                        try {
+                            // Always clear existing tokens and generate fresh ones
+                            for (const v3Field of v3Fields) {
+                                v3Field.value = ''; // Clear old token
+                                const fieldAction = v3Field.dataset.captchaAction || 'default';
+                                await window.SimpleCaptcha.generateV3Token(v3Field, fieldAction);
                             }
-                        }, true);
-                    }
+
+                            // Handle form submission based on type
+                            if (form.hasAttribute('wire:submit') || form.hasAttribute('wire:submit.prevent')) {
+                                // Livewire form submission
+                                const method = form.getAttribute('wire:submit') || form.getAttribute('wire:submit.prevent');
+                                const livewireComponent = form.closest('[wire\\:id]');
+                                
+                                if (livewireComponent && method) {
+                                    const livewireId = livewireComponent.getAttribute('wire:id');
+                                    const component = Livewire.find(livewireId);
+                                    component.call(method.replace('.prevent', '').trim());
+                                }
+                            } else {
+                                // Regular form submission
+                                // Remove event listener temporarily to avoid infinite loop
+                                const newForm = form.cloneNode(true);
+                                form.parentNode.replaceChild(newForm, form);
+                                newForm.submit();
+                            }
+                        } catch (error) {
+                            console.error('Captcha token generation failed:', error);
+                            
+                            // Fallback: try to submit anyway
+                            if (form.hasAttribute('wire:submit') || form.hasAttribute('wire:submit.prevent')) {
+                                const method = form.getAttribute('wire:submit') || form.getAttribute('wire:submit.prevent');
+                                const livewireComponent = form.closest('[wire\\:id]');
+                                
+                                if (livewireComponent && method) {
+                                    const livewireId = livewireComponent.getAttribute('wire:id');
+                                    const component = Livewire.find(livewireId);
+                                    component.call(method.replace('.prevent', '').trim());
+                                }
+                            } else {
+                                const newForm = form.cloneNode(true);
+                                form.parentNode.replaceChild(newForm, form);
+                                newForm.submit();
+                            }
+                        }
+                    }, true);
                 }
 
                 renderV2Widget(field) {
@@ -259,7 +211,7 @@
                         try {
                             // Get the correct site key for v2
                             const v2SiteKey = field.dataset.sitekey || this.getV2SiteKey() || this.siteKey;
-                            
+
                             const widgetId = grecaptcha.render(container, {
                                 sitekey: v2SiteKey,
                                 callback: (token) => {
@@ -337,68 +289,36 @@
                 window.SimpleCaptcha = new SimpleCaptcha();
             }
 
-            // Livewire integration - smart reinitialize only when needed
-            function reinitializeCaptcha(targetElement = null) {
+            // Simplified Livewire integration - only setup new fields
+            function initializeNewFields(targetElement = null) {
                 if (!window.SimpleCaptcha) return;
 
                 setTimeout(() => {
-                    // If a specific element is provided, only initialize fields within it
-                    if (targetElement) {
-                        // Check if target element itself is a captcha field
-                        if (targetElement.dataset?.captchaVersion && targetElement.dataset.captchaInitialized !== 'true') {
-                            window.SimpleCaptcha.initField(targetElement);
-                        }
-                        
-                        // Check for captcha fields within the target element
-                        const newFields = targetElement.querySelectorAll('[data-captcha-version]:not([data-captcha-initialized="true"])');
-                        newFields.forEach(field => {
-                            window.SimpleCaptcha.initField(field);
-                        });
-                        
-                        // Regenerate tokens for empty v3 fields within target
-                        const emptyV3Fields = targetElement.querySelectorAll('[data-captcha-version="v3"][data-captcha-initialized="true"]');
-                        emptyV3Fields.forEach(field => {
-                            if (!field.value || field.value.trim() === '') {
-                                const action = field.dataset.captchaAction || 'default';
-                                window.SimpleCaptcha.generateV3Token(field, action).catch(console.error);
-                            }
-                        });
-                    } else {
-                        // Only initialize uninitialized fields
-                        const uninitializedFields = document.querySelectorAll('[data-captcha-version]:not([data-captcha-initialized="true"])');
-                        uninitializedFields.forEach(field => {
-                            window.SimpleCaptcha.initField(field);
-                        });
-                        
-                        // Regenerate tokens for empty v3 fields
-                        const emptyV3Fields = document.querySelectorAll('[data-captcha-version="v3"][data-captcha-initialized="true"]');
-                        emptyV3Fields.forEach(field => {
-                            if (!field.value || field.value.trim() === '') {
-                                const action = field.dataset.captchaAction || 'default';
-                                window.SimpleCaptcha.generateV3Token(field, action).catch(console.error);
-                            }
-                        });
-                    }
-                }, 150);
+                    const searchScope = targetElement || document;
+                    
+                    // Find uninitialized fields
+                    const newFields = searchScope.querySelectorAll('[data-captcha-version]:not([data-captcha-initialized="true"])');
+                    
+                    // Initialize only new fields (no token generation)
+                    newFields.forEach(field => {
+                        window.SimpleCaptcha.initField(field);
+                    });
+                }, 50);
             }
 
-            // Single Livewire hook - only use morphed for efficiency
+            // Livewire integration - handle only new fields after DOM updates
             if (typeof Livewire !== 'undefined' && Livewire.hook) {
-                // Use only the morphed hook which fires after DOM updates
-                Livewire.hook('morphed', ({
-                    el,
-                    component
-                }) => {
-                    // Only reinitialize if the morphed element contains captcha fields
+                Livewire.hook('morphed', ({ el }) => {
+                    // Only setup new captcha fields, no token regeneration
                     if (el && (el.querySelector('[data-captcha-version]') || el.dataset?.captchaVersion)) {
-                        reinitializeCaptcha(el);
+                        initializeNewFields(el);
                     }
                 });
             }
 
-            // Manual refresh events (keep minimal event handling)
+            // Manual field initialization (for dynamic content)
             window.addEventListener('captcha-refresh', () => {
-                reinitializeCaptcha();
+                initializeNewFields();
             });
         </script>
     @endonce
