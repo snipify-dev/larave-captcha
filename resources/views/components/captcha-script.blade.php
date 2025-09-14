@@ -337,102 +337,69 @@
                 window.SimpleCaptcha = new SimpleCaptcha();
             }
 
-            // Livewire integration - reinitialize captcha after Livewire updates
-            function reinitializeCaptcha() {
-                if (window.SimpleCaptcha) {
-                    setTimeout(() => {
-                        window.SimpleCaptcha.initializeFields();
+            // Livewire integration - smart reinitialize only when needed
+            function reinitializeCaptcha(targetElement = null) {
+                if (!window.SimpleCaptcha) return;
+
+                setTimeout(() => {
+                    // If a specific element is provided, only initialize fields within it
+                    if (targetElement) {
+                        // Check if target element itself is a captcha field
+                        if (targetElement.dataset?.captchaVersion && targetElement.dataset.captchaInitialized !== 'true') {
+                            window.SimpleCaptcha.initField(targetElement);
+                        }
                         
-                        // Also check for empty v3 fields and regenerate tokens
-                        const v3Fields = document.querySelectorAll('[data-captcha-version="v3"]');
-                        v3Fields.forEach((field, index) => {
+                        // Check for captcha fields within the target element
+                        const newFields = targetElement.querySelectorAll('[data-captcha-version]:not([data-captcha-initialized="true"])');
+                        newFields.forEach(field => {
+                            window.SimpleCaptcha.initField(field);
+                        });
+                        
+                        // Regenerate tokens for empty v3 fields within target
+                        const emptyV3Fields = targetElement.querySelectorAll('[data-captcha-version="v3"][data-captcha-initialized="true"]');
+                        emptyV3Fields.forEach(field => {
                             if (!field.value || field.value.trim() === '') {
                                 const action = field.dataset.captchaAction || 'default';
                                 window.SimpleCaptcha.generateV3Token(field, action).catch(console.error);
                             }
                         });
-                    }, 150);
-                }
+                    } else {
+                        // Only initialize uninitialized fields
+                        const uninitializedFields = document.querySelectorAll('[data-captcha-version]:not([data-captcha-initialized="true"])');
+                        uninitializedFields.forEach(field => {
+                            window.SimpleCaptcha.initField(field);
+                        });
+                        
+                        // Regenerate tokens for empty v3 fields
+                        const emptyV3Fields = document.querySelectorAll('[data-captcha-version="v3"][data-captcha-initialized="true"]');
+                        emptyV3Fields.forEach(field => {
+                            if (!field.value || field.value.trim() === '') {
+                                const action = field.dataset.captchaAction || 'default';
+                                window.SimpleCaptcha.generateV3Token(field, action).catch(console.error);
+                            }
+                        });
+                    }
+                }, 150);
             }
 
-            // Proper Livewire 3 hooks with correct signatures
+            // Single Livewire hook - only use morphed for efficiency
             if (typeof Livewire !== 'undefined' && Livewire.hook) {
-                // Component initialization hook
-                Livewire.hook('component.init', ({
-                    component,
-                    cleanup
-                }) => {
-                    reinitializeCaptcha();
-                });
-
-                // Global morphed hook - fires after all DOM updates
+                // Use only the morphed hook which fires after DOM updates
                 Livewire.hook('morphed', ({
                     el,
                     component
                 }) => {
-                    reinitializeCaptcha();
-                });
-
-                // Element-specific update hook (correct signature)
-                Livewire.hook('morph.updated', ({
-                    el,
-                    component
-                }) => {
-                    // Check if this element or its children contain captcha fields
+                    // Only reinitialize if the morphed element contains captcha fields
                     if (el && (el.querySelector('[data-captcha-version]') || el.dataset?.captchaVersion)) {
-                        setTimeout(reinitializeCaptcha, 100);
+                        reinitializeCaptcha(el);
                     }
-                });
-
-                // Hook to handle form submissions with v3 captcha
-                Livewire.hook('commit', ({
-                    component,
-                    commit,
-                    respond,
-                    succeed,
-                    fail
-                }) => {
-                    succeed(({
-                        snapshot,
-                        effect
-                    }) => {
-                        // Check if there are validation errors
-                        if (snapshot?.memo?.errors && Object.keys(snapshot.memo.errors).length > 0) {
-                            setTimeout(reinitializeCaptcha, 200);
-                        }
-                    });
                 });
             }
 
-            // Listen for custom captcha refresh events
-            document.addEventListener('livewire:dispatch', (e) => {
-                if (e.detail && e.detail.name === 'captcha-refresh') {
-                    reinitializeCaptcha();
-                }
-            });
-
-            // Direct window event listener for manual refresh
+            // Manual refresh events (keep minimal event handling)
             window.addEventListener('captcha-refresh', () => {
                 reinitializeCaptcha();
             });
-
-            // Additional modal-specific initialization
-            // Check for new captcha fields periodically (useful for modals)
-            let modalCheckInterval = setInterval(() => {
-                if (window.SimpleCaptcha) {
-                    const v3Fields = document.querySelectorAll('[data-captcha-version="v3"]:not([data-captcha-initialized="true"])');
-                    if (v3Fields.length > 0) {
-                        v3Fields.forEach(field => {
-                            window.SimpleCaptcha.initField(field);
-                        });
-                    }
-                }
-            }, 1000);
-
-            // Stop checking after 30 seconds to avoid memory leaks
-            setTimeout(() => {
-                clearInterval(modalCheckInterval);
-            }, 30000);
         </script>
     @endonce
 @else

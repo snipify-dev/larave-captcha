@@ -1,5 +1,6 @@
 {
     "name": "snipify-dev/laravel-captcha",
+    "version": "1.0.1",
     "description": "A comprehensive Laravel package for integrating Google reCAPTCHA v2 and v3 with support for standard forms and Livewire components",
     "keywords": [
         "laravel",
