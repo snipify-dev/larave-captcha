@@ -137,12 +137,14 @@
                         return;
                     }
 
-                    // Skip if form already intercepted
-                    if (form.dataset.captchaIntercepted) {
+                    // Always setup listener - Livewire morphing creates new form elements
+                    // that need fresh event listeners even if they have the data attribute
+                    if (form.dataset.captchaIntercepted && form._captchaListenerAttached) {
                         return;
                     }
 
                     form.dataset.captchaIntercepted = 'true';
+                    form._captchaListenerAttached = true;
 
                     form.addEventListener('submit', async (event) => {
                         // Always prevent default submission
@@ -289,36 +291,56 @@
                 window.SimpleCaptcha = new SimpleCaptcha();
             }
 
-            // Simplified Livewire integration - only setup new fields
-            function initializeNewFields(targetElement = null) {
+            // Enhanced field initialization for all scenarios
+            function initializeFields(targetElement = null, forceReinit = false) {
                 if (!window.SimpleCaptcha) return;
 
                 setTimeout(() => {
                     const searchScope = targetElement || document;
                     
-                    // Find uninitialized fields
-                    const newFields = searchScope.querySelectorAll('[data-captcha-version]:not([data-captcha-initialized="true"])');
-                    
-                    // Initialize only new fields (no token generation)
-                    newFields.forEach(field => {
-                        window.SimpleCaptcha.initField(field);
-                    });
+                    if (forceReinit) {
+                        // Force reinitialization - reset all fields in scope
+                        const allFields = searchScope.querySelectorAll('[data-captcha-version]');
+                        allFields.forEach(field => {
+                            field.dataset.captchaInitialized = 'false';
+                            const form = field.closest('form');
+                            if (form) {
+                                form._captchaListenerAttached = false;
+                            }
+                            window.SimpleCaptcha.initField(field);
+                        });
+                    } else {
+                        // Normal initialization - only new fields
+                        const newFields = searchScope.querySelectorAll('[data-captcha-version]:not([data-captcha-initialized="true"])');
+                        newFields.forEach(field => {
+                            window.SimpleCaptcha.initField(field);
+                        });
+                        
+                        // Also reinitialize fields that may have been morphed (lost their listeners)
+                        const existingFields = searchScope.querySelectorAll('[data-captcha-version][data-captcha-initialized="true"]');
+                        existingFields.forEach(field => {
+                            const form = field.closest('form');
+                            if (form && !form._captchaListenerAttached) {
+                                // Reattach listener for morphed forms
+                                window.SimpleCaptcha.setupV3FormInterception(field, field.dataset.captchaAction || 'default');
+                            }
+                        });
+                    }
                 }, 50);
             }
 
-            // Livewire integration - handle only new fields after DOM updates
+            // Livewire integration - handle DOM updates after morphing
             if (typeof Livewire !== 'undefined' && Livewire.hook) {
                 Livewire.hook('morphed', ({ el }) => {
-                    // Only setup new captcha fields, no token regeneration
                     if (el && (el.querySelector('[data-captcha-version]') || el.dataset?.captchaVersion)) {
-                        initializeNewFields(el);
+                        initializeFields(el, false);
                     }
                 });
             }
 
-            // Manual field initialization (for dynamic content)
+            // Manual field reinitialization (triggered by validation errors)
             window.addEventListener('captcha-refresh', () => {
-                initializeNewFields();
+                initializeFields(null, true); // Force full reinitialization
             });
         </script>
     @endonce
