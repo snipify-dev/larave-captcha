@@ -362,10 +362,6 @@
                 }
             }, true);
 
-            // Manual field reinitialization (triggered by validation errors)
-            window.addEventListener('captcha-refresh', () => {
-                initializeFields(null, true); // Force full reinitialization
-            });
         </script>
     @endonce
 @else
