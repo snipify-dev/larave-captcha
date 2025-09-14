@@ -130,6 +130,9 @@
                 }
 
                 setupV3FormInterception(field, action) {
+                    // No longer attach individual form listeners
+                    // All form submission handling is done via global event delegation
+                    // This method just marks the field as initialized
                     const form = field.closest('form');
                     
                     if (!form) {
@@ -137,68 +140,8 @@
                         return;
                     }
 
-                    // Always setup listener - Livewire morphing creates new form elements
-                    // that need fresh event listeners even if they have the data attribute
-                    if (form.dataset.captchaIntercepted && form._captchaListenerAttached) {
-                        return;
-                    }
-
-                    form.dataset.captchaIntercepted = 'true';
-                    form._captchaListenerAttached = true;
-
-                    form.addEventListener('submit', async (event) => {
-                        // Always prevent default submission
-                        event.preventDefault();
-                        event.stopPropagation();
-
-                        const v3Fields = form.querySelectorAll('[data-captcha-version="v3"]');
-
-                        try {
-                            // Always clear existing tokens and generate fresh ones
-                            for (const v3Field of v3Fields) {
-                                v3Field.value = ''; // Clear old token
-                                const fieldAction = v3Field.dataset.captchaAction || 'default';
-                                await window.SimpleCaptcha.generateV3Token(v3Field, fieldAction);
-                            }
-
-                            // Handle form submission based on type
-                            if (form.hasAttribute('wire:submit') || form.hasAttribute('wire:submit.prevent')) {
-                                // Livewire form submission
-                                const method = form.getAttribute('wire:submit') || form.getAttribute('wire:submit.prevent');
-                                const livewireComponent = form.closest('[wire\\:id]');
-                                
-                                if (livewireComponent && method) {
-                                    const livewireId = livewireComponent.getAttribute('wire:id');
-                                    const component = Livewire.find(livewireId);
-                                    component.call(method.replace('.prevent', '').trim());
-                                }
-                            } else {
-                                // Regular form submission
-                                // Remove event listener temporarily to avoid infinite loop
-                                const newForm = form.cloneNode(true);
-                                form.parentNode.replaceChild(newForm, form);
-                                newForm.submit();
-                            }
-                        } catch (error) {
-                            console.error('Captcha token generation failed:', error);
-                            
-                            // Fallback: try to submit anyway
-                            if (form.hasAttribute('wire:submit') || form.hasAttribute('wire:submit.prevent')) {
-                                const method = form.getAttribute('wire:submit') || form.getAttribute('wire:submit.prevent');
-                                const livewireComponent = form.closest('[wire\\:id]');
-                                
-                                if (livewireComponent && method) {
-                                    const livewireId = livewireComponent.getAttribute('wire:id');
-                                    const component = Livewire.find(livewireId);
-                                    component.call(method.replace('.prevent', '').trim());
-                                }
-                            } else {
-                                const newForm = form.cloneNode(true);
-                                form.parentNode.replaceChild(newForm, form);
-                                newForm.submit();
-                            }
-                        }
-                    }, true);
+                    // Mark form as having captcha fields for the global handler
+                    form.dataset.hasCaptchaFields = 'true';
                 }
 
                 renderV2Widget(field) {
@@ -291,7 +234,7 @@
                 window.SimpleCaptcha = new SimpleCaptcha();
             }
 
-            // Enhanced field initialization for all scenarios
+            // Simplified field initialization - no listener management needed
             function initializeFields(targetElement = null, forceReinit = false) {
                 if (!window.SimpleCaptcha) return;
 
@@ -303,10 +246,6 @@
                         const allFields = searchScope.querySelectorAll('[data-captcha-version]');
                         allFields.forEach(field => {
                             field.dataset.captchaInitialized = 'false';
-                            const form = field.closest('form');
-                            if (form) {
-                                form._captchaListenerAttached = false;
-                            }
                             window.SimpleCaptcha.initField(field);
                         });
                     } else {
@@ -314,16 +253,6 @@
                         const newFields = searchScope.querySelectorAll('[data-captcha-version]:not([data-captcha-initialized="true"])');
                         newFields.forEach(field => {
                             window.SimpleCaptcha.initField(field);
-                        });
-                        
-                        // Also reinitialize fields that may have been morphed (lost their listeners)
-                        const existingFields = searchScope.querySelectorAll('[data-captcha-version][data-captcha-initialized="true"]');
-                        existingFields.forEach(field => {
-                            const form = field.closest('form');
-                            if (form && !form._captchaListenerAttached) {
-                                // Reattach listener for morphed forms
-                                window.SimpleCaptcha.setupV3FormInterception(field, field.dataset.captchaAction || 'default');
-                            }
                         });
                     }
                 }, 50);
@@ -337,6 +266,101 @@
                     }
                 });
             }
+
+            // Global form submission handler using event delegation
+            document.addEventListener('submit', async (event) => {
+                const form = event.target;
+                
+                // Check if this form has captcha fields
+                if (!form.dataset.hasCaptchaFields) {
+                    return; // Not a captcha form, let it submit normally
+                }
+                
+                // Prevent default submission
+                event.preventDefault();
+                event.stopPropagation();
+                
+                const v3Fields = form.querySelectorAll('[data-captcha-version="v3"]');
+                
+                if (v3Fields.length === 0) {
+                    return; // No v3 fields, let form submit normally
+                }
+                
+                try {
+                    // Always clear existing tokens and generate fresh ones
+                    for (const v3Field of v3Fields) {
+                        v3Field.value = ''; // Clear old token
+                        const fieldAction = v3Field.dataset.captchaAction || 'default';
+                        await window.SimpleCaptcha.generateV3Token(v3Field, fieldAction);
+                    }
+
+                    // Handle form submission based on type
+                    if (form.hasAttribute('wire:submit') || form.hasAttribute('wire:submit.prevent')) {
+                        // Livewire form submission
+                        const method = form.getAttribute('wire:submit') || form.getAttribute('wire:submit.prevent');
+                        const livewireComponent = form.closest('[wire\\:id]');
+                        
+                        if (livewireComponent && method) {
+                            const livewireId = livewireComponent.getAttribute('wire:id');
+                            const component = Livewire.find(livewireId);
+                            component.call(method.replace('.prevent', '').trim());
+                        }
+                    } else {
+                        // Regular form submission - create new form to avoid infinite loop
+                        const formData = new FormData(form);
+                        const newForm = document.createElement('form');
+                        newForm.method = form.method || 'POST';
+                        newForm.action = form.action || '';
+                        
+                        // Copy all form data
+                        for (let [key, value] of formData.entries()) {
+                            const input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = key;
+                            input.value = value;
+                            newForm.appendChild(input);
+                        }
+                        
+                        document.body.appendChild(newForm);
+                        newForm.submit();
+                        document.body.removeChild(newForm);
+                    }
+                } catch (error) {
+                    console.error('Captcha token generation failed:', error);
+                    
+                    // Fallback: try to submit anyway
+                    if (form.hasAttribute('wire:submit') || form.hasAttribute('wire:submit.prevent')) {
+                        const method = form.getAttribute('wire:submit') || form.getAttribute('wire:submit.prevent');
+                        const livewireComponent = form.closest('[wire\\:id]');
+                        
+                        if (livewireComponent && method) {
+                            const livewireId = livewireComponent.getAttribute('wire:id');
+                            const component = Livewire.find(livewireId);
+                            component.call(method.replace('.prevent', '').trim());
+                        }
+                    } else {
+                        // Let the original form submit
+                        setTimeout(() => {
+                            const formData = new FormData(form);
+                            const newForm = document.createElement('form');
+                            newForm.method = form.method || 'POST';
+                            newForm.action = form.action || '';
+                            
+                            for (let [key, value] of formData.entries()) {
+                                const input = document.createElement('input');
+                                input.type = 'hidden';
+                                input.name = key;
+                                input.value = value;
+                                newForm.appendChild(input);
+                            }
+                            
+                            document.body.appendChild(newForm);
+                            newForm.submit();
+                            document.body.removeChild(newForm);
+                        }, 100);
+                    }
+                }
+            }, true);
 
             // Manual field reinitialization (triggered by validation errors)
             window.addEventListener('captcha-refresh', () => {
